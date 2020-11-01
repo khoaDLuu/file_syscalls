@@ -1,8 +1,10 @@
 import java.util.Scanner;
-import java.io.*;
 
 import com.sun.jna.Library;
+import com.sun.jna.Memory;
 import com.sun.jna.Native;
+import com.sun.jna.Pointer;
+import java.io.*;
 // import com.sun.jna.platform.linux.Fcntl.S_IRWXU;
 // import com.sun.jna.platform.linux.Fcntl.S_IRGRP;
 // import com.sun.jna.platform.linux.Fcntl.S_IROTH;
@@ -15,13 +17,18 @@ public class FileLib {
   public static void main(String[] args) throws Exception {
     FileLib fl = new FileLib();
     long fd = -1;
+    String fileName = null;
+
+    // open/write/close test
     try {
       System.out.print("Enter your new file's name: ");
       Scanner sc = new Scanner(System.in);
-      String fileName = sc.nextLine();
+      fileName = sc.nextLine();
 
-      System.out.println("Opening files named " + fileName);
+      System.out.println("Opening file named " + fileName);
       fd = fl.openFile(fileName);
+      fl.writeFile(fd, "Hello world!\n");
+      System.out.println("Last system error: " + Native.getLastError());
 
       System.out.println("\nListing files ...");
       fl.listFiles();
@@ -114,19 +121,35 @@ public class FileLib {
     int exitVal = pr.waitFor();
   }
 
-  private void printKernelLog() throws Exception {
-    String cmdString = new String("dmesg");
-    Process pr = rt.exec(cmdString);
+  private void showTree() throws Exception {
+    Process pr = rt.exec("tree " + psudohome);
     
     BufferedReader rd = new BufferedReader(
         new InputStreamReader(pr.getInputStream()));
 
     String line = null;
-    String prevLine = null;
     while ((line = rd.readLine()) != null) {
-      prevLine = line;
+      System.out.println(line);
     }
-    System.out.println("---\nKernel buffer log:\n...\n" + prevLine);
+    int exitVal = pr.waitFor();
+  }
+
+  private void printKernelLog() throws Exception {
+    String[] cmd = {
+      "/bin/sh",
+      "-c",
+      "dmesg | tail -5"
+    };
+    Process pr = rt.exec(cmd); // Coz rt.exec() doesn't work with pipes directly
+    
+    BufferedReader rd = new BufferedReader(
+        new InputStreamReader(pr.getInputStream()));
+
+    System.out.println("---\nKernel buffer log:\n...");
+    String line = null;
+    while ((line = rd.readLine()) != null) {
+      System.out.println(line);
+    }
   
     int exitVal = pr.waitFor();
     System.out.println("\nExited 'dmesg' with error code " + exitVal + "\n---");
