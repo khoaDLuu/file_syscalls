@@ -1,3 +1,5 @@
+// package sys_lib;
+
 import java.util.Scanner;
 
 import com.sun.jna.Library;
@@ -157,13 +159,13 @@ public class FileLib {
 
   public long openFile(String fileName) throws Exception {
     long fd = clib.syscall(__NR_open_file, psudohome + fileName);
-    this.printKernelLog();
+    // this.printKernelLog();
     return fd;
   }
 
   public void closeFile(long fd) throws Exception {
     clib.syscall(__NR_close_file, fd); 
-    this.printKernelLog();
+    // this.printKernelLog();
   }
 
   public String readFile(long fd) throws Exception {
@@ -176,13 +178,10 @@ public class FileLib {
     while (
         (readCount = clib.syscall(__NR_read_file, fd, memBlock, chunkSize - 1)) > 0
     ) {
-      // System.out.println("[DEBUG] right after #read_file#");//////////////
       cont.append(memBlock.getString(0));
-      // System.out.println("[DEBUG] after receiving a chunk");//////////////
       memBlock.clear(chunkSize);
-      // System.out.println("[DEBUG] after clearing the buffer");//////////////
 
-      this.printKernelLog();
+      // this.printKernelLog();
     }
 
     return cont.toString();
@@ -190,7 +189,7 @@ public class FileLib {
 
   public void writeFile(long fd, String cont) throws Exception {
     clib.syscall(__NR_write_file, fd, cont, cont.length()); 
-    this.printKernelLog();
+    // this.printKernelLog();
   }
 
   public void appendFile(long fd, String cont) throws Exception {
@@ -202,29 +201,34 @@ public class FileLib {
   public void moveFile(String currentLoc, String newLoc) throws Exception {
     // additional param `fname`?
     clib.syscall(__NR_reloc_file, psudohome + currentLoc, psudohome + newLoc);
-    this.printKernelLog();
+    // this.printKernelLog();
   }
 
   public void renameFile(String oldName, String newName) throws Exception {
     // change params to (path, oldname, newname)?
     clib.syscall(__NR_reloc_file, psudohome + oldName, psudohome + newName);
-    this.printKernelLog();
+    // this.printKernelLog();
   }
 
   public void deleteFile(String fileName) throws Exception {
     clib.syscall(__NR_delete_file, psudohome + fileName);
-    this.printKernelLog();
+    // this.printKernelLog();
   }
 
   public void createDir(String dirName) throws Exception {
     clib.syscall(__NR_create_dir, psudohome + dirName);
-    this.printKernelLog();
+    // this.printKernelLog();
   }
 
   public void deleteDir(String dirName) throws Exception {
     // delete the dir's contents ?
     clib.syscall(__NR_delete_dir, psudohome + dirName);
-    this.printKernelLog();
+    // this.printKernelLog();
+  }
+
+  public boolean fileExists(String fileName) throws Exception {
+    File f = new File(psudohome + "/" + fileName.trim());
+    return f.isFile();
   }
 }
 
