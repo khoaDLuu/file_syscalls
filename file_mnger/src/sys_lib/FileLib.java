@@ -123,31 +123,42 @@ public class FileLib {
     int exitVal = pr.waitFor();
   }
 
-  private void showTree() throws Exception {
+  public void showTree() throws Exception {
     Process pr = rt.exec("tree " + psudohome);
     
     BufferedReader rd = new BufferedReader(
         new InputStreamReader(pr.getInputStream()));
 
     String line = null;
+    boolean isFirstLine = true;
     while ((line = rd.readLine()) != null) {
-      System.out.println(line);
+      if (isFirstLine) {
+        System.out.println("HOME\t\t\t(HOME = /home/keith/Documents/psdhome/)");
+        isFirstLine = false;
+      }
+      else {
+        System.out.println(line);
+      }
     }
     int exitVal = pr.waitFor();
   }
 
-  private void printKernelLog() throws Exception {
+  public void printKernelLog() throws Exception {
+    this.printKernelLog(10);
+  }
+
+  public void printKernelLog(int lineNum) throws Exception {
     String[] cmd = {
       "/bin/sh",
       "-c",
-      "dmesg | tail -5"
+      "dmesg | tail -" + lineNum
     };
     Process pr = rt.exec(cmd); // Coz rt.exec() doesn't work with pipes directly
     
     BufferedReader rd = new BufferedReader(
         new InputStreamReader(pr.getInputStream()));
 
-    System.out.println("---\nKernel buffer log:\n...");
+    System.out.println("---\n...");
     String line = null;
     while ((line = rd.readLine()) != null) {
       System.out.println(line);
@@ -172,15 +183,14 @@ public class FileLib {
     StringBuilder cont = new StringBuilder();
     int chunkSize = 1000;
     Pointer memBlock = new Memory(chunkSize);
+    memBlock.clear(chunkSize);
 
     long readCount = 0;
-    // System.out.println("[DEBUG] before #read_file#");//////////////
     while (
-        (readCount = clib.syscall(__NR_read_file, fd, memBlock, chunkSize - 1)) > 0
+        (readCount = clib.syscall(__NR_read_file, fd, memBlock, chunkSize)) > 0
     ) {
       cont.append(memBlock.getString(0));
       memBlock.clear(chunkSize);
-
       // this.printKernelLog();
     }
 
@@ -193,9 +203,11 @@ public class FileLib {
   }
 
   public void appendFile(long fd, String cont) throws Exception {
-    String existedCont = this.readFile(fd);
-    String updatedCont = existedCont + "\n" + cont;
-    this.writeFile(fd, updatedCont);
+    String existingCont = this.readFile(fd);
+    // after readFile(), the file pointer is at the end of the file
+    // so there's no need to append new content to existing content
+    // String updatedCont = existingCont + "\n" + cont;
+    this.writeFile(fd, cont);
   }
 
   public void moveFile(String currentLoc, String newLoc) throws Exception {
@@ -205,7 +217,6 @@ public class FileLib {
   }
 
   public void renameFile(String oldName, String newName) throws Exception {
-    // change params to (path, oldname, newname)?
     clib.syscall(__NR_reloc_file, psudohome + oldName, psudohome + newName);
     // this.printKernelLog();
   }
@@ -221,14 +232,68 @@ public class FileLib {
   }
 
   public void deleteDir(String dirName) throws Exception {
-    // delete the dir's contents ?
     clib.syscall(__NR_delete_dir, psudohome + dirName);
     // this.printKernelLog();
   }
 
-  public boolean fileExists(String fileName) throws Exception {
-    File f = new File(psudohome + "/" + fileName.trim());
-    return f.isFile();
+  public void deleteDirUnsafe(String dirName) throws Exception {
+    this.deleteItemUnsafe(dirName);
+  }
+
+  public void deleteItemUnsafe(String itemName) throws Exception {
+    if (this.fileExists(itemName)) {
+      clib.syscall(__NR_delete_file, psudohome + itemName);
+    }
+    else if (this.dirEmpty(itemName)) {
+      clib.syscall(__NR_delete_dir, psudohome + itemName);
+    }
+    else {
+      for (String childItemName : new File(psudohome + itemName).list()) {
+        this.deleteItemUnsafe(itemName + "/" + this.getItemName(childItemName));
+      }
+      clib.syscall(__NR_delete_dir, psudohome + itemName);
+    }
+  }
+
+  public boolean fileExists(String fileName) {
+    try {
+      File f = new File(psudohome + fileName);
+      return f.isFile();
+    }
+    catch (SecurityException ex) {
+      return false;
+    }
+  }
+
+  public boolean dirExists(String dirName) {
+    try {
+      File f = new File(psudohome + dirName);
+      return f.isDirectory();
+    }
+    catch (SecurityException ex) {
+      return false;
+    }
+  }
+
+  public boolean dirEmpty(String dirName) {
+    try {
+      File f = new File(psudohome + dirName);
+      return f.isDirectory() && f.list().length == 0;
+    }
+    catch (SecurityException ex) {
+      return false;
+    }
+  }
+ 
+  public String getItemName(String fullpath) {
+    File f = new File(fullpath);
+    return f.getName();
+  }
+
+  public String getParentName(String fullpath) {
+    File f = new File(fullpath);
+    String prName = f.getParent();
+    return prName == null ? "" : (prName + "/");
   }
 }
 
